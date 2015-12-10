@@ -1,0 +1,217 @@
+[mysqld]
+
+# 监听端口，会被 mysos 用随机端口替换
+port                           = {{port}}
+
+# 这个实例的 id，复制要求同一个复制集群内的 id 是唯一的
+# 这里会被 mysos 用 IP + PORT 来替换
+server_id                      = {{server_id}}
+
+# mysql binary path
+# 这里会被 mysos使用默认路径的方式替换
+basedir                        = {{which_mysql}}
+
+# GENERAL #
+
+# 表示 mysql 进程所属用户，统一用 mysql
+user                           = {{framework_user}}
+
+# 默认存储引擎设置为 innodb,该引擎支持mvcc，事务等
+default_storage_engine         = InnoDB
+
+# character set 使用 utf8
+character_set_server           = utf8
+
+# socket连接，同台服务器上要求socket连接唯一
+# 这里会被 mysos使用默认路径 + dbname.sock 的方式替换
+socket                         = {{framework_tmp_socket}}
+
+# pid_file 启动mysql会生成一个pid文件，存储该启动进程信息
+# 这里会被 mysos使用默认路径 + dbname.pid 的方式替换
+pid_file                       = {{framework_sandbox_pidfile}}
+
+#关闭从库复制进程随着主库启动而启动，手动进行从库进程的启动,安全
+skip_slave_start               = 1
+
+# MyISAM #
+key_buffer_size                = 32M
+
+# SAFETY #
+
+# 允许传输的最大包的大小,或者是生成/中间的字符串
+max_allowed_packet             = 32M
+
+# 最大连接错误计数,当一个host连接错误超过设置的值，会报错,必须手动 flush host,当小于该值连接成功,则统计值归零,默认100
+max_connect_errors             = 100000
+
+# 跟 sql_mode 作用类似，防止sql语句里出现错别字，标记等Oracle recommends enabling innodb_strict_mode
+innodb_strict_mode             = 1
+
+# sql_mode sql规则限制(事务表启用严格sql mode,自增长列不能为0,被除数不能为0,不能使用grant自动创建用户除非指定密码,引用被禁用或未编译的引擎抛错)
+sql_mode                       =  STRICT_TRANS_TABLES,NO_AUTO_VALUE_ON_ZERO,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION
+
+# skip name resolved,只能使用ip进行授权
+skip_name_resolve              = 1
+
+# replication_ignore_db 在从库上进行过滤，不执行以下db的binlog
+replicate_ignore_db            = mysql
+replicate_ignore_db            = performance_schema
+
+# DATA STORAGE #
+
+# mysql data path
+# 这里会被 mysos使用指定路径的方式替换
+datadir                        = {{framework_sandbox_datadir}}
+
+# mysql temp data path
+# 这里会被 mysos使用指定路径的方式替换
+tmpdir                         = {{framework_sandbox_tmpdir}}
+
+# BINARY LOGGING #
+
+# binlog 路径与名称设置
+# 这里会被 mysos使用指定路径的方式替换
+log_bin                        = {{framework_sandbox_datadir/mysql_bin}}
+
+# binlog_checksum 5.6 默认为 CRC32,为了兼容5.5,设置该值为 NONE
+binlog_checksum                = NONE
+
+# innodb_checksum_algorithm 5.6 默认为 CRC32,为了兼容5.5,设置该值为 5.5默认值
+innodb_checksum_algorithm      = INNODB
+
+# 只保留最近一周的 binlog 日志
+expire_logs_days               = 7
+
+# sync_binlog = 0 由操作系统控制将binlog刷新到磁盘
+# sync_binlog = 1 事务每次提交记录到binlog并刷新到磁盘
+# sync_binlog > 1 事务提交达到该值，写到binlog并刷新到磁盘
+sync_binlog                    = 1
+
+# binlog 记录方式
+# binlog_format = statement 记录事务变化的语句,但是有些uuid等函数不能同步到从库
+# binlog_format = row 记录数据块的变化
+# binlog_format = mixed 与statement,row 方式结合
+binlog_format                  = ROW
+
+#  RELAY LOGGING  #
+
+# crash safe
+# 如果是MySQL 5.6.5 或者更早期,slave_master_info 和 slave_relay_log_info 表默认使用MyISAM 引擎。所以还得修改成innodb，如下：
+# ALTER TABLE mysql.slave_master_info ENGINE=InnoDB;
+# ALTER TABLE mysql.slave_relay_log_info ENGINE=InnoDB;
+# master.info 存储在mysql.master_info
+master_info_repository         = TABLE
+
+# relay.info 存储在mysql.relay_log_info
+relay_log_info_repository      = TABLE
+
+# slave发生crash后重启之后重连master时，slave不根据master_info的信息进行重连，而是根据relay_info中执行到master的位置信息重新开始拉master上的日志数据
+relay_log_recovery             = 1
+
+# relay log 路径
+# 这里会被 mysos使用指定路径的方式替换
+relay_log                      = {{framework_sandbox_logdir/mysql_relay_bin}}
+
+# relay log index 路径
+# 这里会被 mysos使用指定路径的方式替换
+relay_log_index                = {{framework_sandbox_logdir/mysql_relay_bin.index}}
+
+# 当使用链式 主从复制，当开启该参数
+log_slave_updates              = 1
+
+# CACHES AND LIMITS #
+
+# 用户创建的memory表最大大小,其最大值，取决于tmp_table_size与max_heap_table_size两者最小值
+tmp_table_size                 = 32M
+# 用户可以创建的memory表最大大小,如果有许多group by,等复杂处理，可以相应调大值
+max_heap_table_size            = 32M
+
+# query_cache_type=0 关闭查询缓存
+# query_cache_type=1 缓存能缓存的查询，除了显示声明 select no_sql_cache
+# query_cache_type=2 只缓存显示声明 select sql_cache
+query_cache_type               = 0
+
+# 关闭查询缓冲功能,查询缓存每次数据更新，删除均会重新将数据从缓冲区清除,默认为关闭
+query_cache_size               = 0
+
+# 指定用于创建一个InnoDB索引的过程中对数据进行排序排序缓冲区的大小,默认1M
+sort_buffer_size               = 16M
+
+# 用于普通索引扫描，范围索引扫描，执行全表扫描的缓冲大小,每两个表join分配一个join－buffer,默认为256K
+join_buffer_size               = 2M
+
+# 最大连接数，依据模块并发访问量调整
+max_connections                = 1024
+
+## mysql 默认设置该值为:10+max_connections/10 可通过查看status设置与threads_connected值大致相等
+thread_cache_size              = 256
+
+# 操作系统允许mysqld打开的文件数量,最大值由操作系统决定,默认5000
+open_files_limit               = 65535
+
+# 表描述符缓存大小,每个访问表的线程各自维护一个文件描述符,默认400,如果show status里的opened_table值较大，则相应调大该值
+table_definition_cache         = 2048
+table_open_cache               = 2048
+
+# INNODB #
+# 这里会被 mysos使用指定路径的方式替换
+innodb_data_home_dir           = {{framework_sandbox_datadir}}
+
+### IOPS,通过业务访问io量相应调整该值
+innodb_io_capacity             = 4000
+
+# 事务日志目录路径
+# 这里会被 mysos使用指定路径的方式替换
+innodb_log_group_home_dir      = {{framework_sandbox_logdir}}
+
+# 事务刷新方式:O_SYNC,O_DIRECT,FSYNC等，与操作系统open/flush文件相关,无法确定该值的影响
+innodb_flush_method            = O_DIRECT
+
+#事务组数量,默认2组
+innodb_log_files_in_group      = 2
+
+# 事务日志文件大小，文件越大，减少日志切换等待，但是crash后恢复时间会变长
+innodb_log_file_size           = 1G
+
+# For durability and consistency in a replication setup that uses InnoDB with transactions:
+# If binary logging is enabled, set sync_binlog=1.
+# Always set innodb_flush_log_at_trx_commit=1.
+innodb_flush_log_at_trx_commit = 1
+
+# 每个innodb表即有一个表空间
+innodb_file_per_table          = 1
+
+# recorded deadlock info to error_log
+innodb_print_all_deadlocks     = 1
+
+# the InnoDB buffer pool is automatically warmed up by loading the same pages it held at an earlier time
+innodb_buffer_pool_load_at_startup = 1
+
+# 与innodb_buffer_pool_load_at_startup 一块使用
+innodb_buffer_pool_dump_at_shutdown = 1
+
+# 日志缓冲大小,日志缓冲不需要很大，每秒事务提交会刷出到磁盘
+innodb_log_buffer_size         = 16M
+
+# 缓冲池(数据，索引，锁信息等)大小, 默认为128M，设置一个大的值，减少物理磁盘读写，提升速度
+# 这里会被 mysos 默认分配大小
+innodb_buffer_pool_size        = {{framework_buffer_pool_size}}
+
+# LOGGING #
+
+# 数据库实例错误信息输出文件
+# 这里会被 mysos使用指定路径的方式替换
+log_error                      = {{framework_sandbox_datadir/mysql_error.log}}
+
+# 如果查询未使用索引，则将sql记录到慢查询中
+log_queries_not_using_indexes  = 1
+
+# 开启慢日志查询功能
+slow_query_log                 = 1
+
+# 时间超过该值，则记录到慢日志
+long_query_time                = 2
+
+# 慢查询日志路径
+# 这里会被 mysos使用指定路径的方式替换
+slow_query_log_file            = {{framework_sandbox_logdir/mysql_slow_query.log}}
